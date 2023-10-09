@@ -40,7 +40,8 @@ TrikScriptRunner::TrikScriptRunner(trikControl::BrickInterface &brick
 								   )
 	: mBrick(brick), mMailbox(mailbox), mScriptControl(scriptControl), mLastRunner(ScriptType::JAVASCRIPT)
 {
-		REGISTER_DEVICES_WITH_TEMPLATE(REGISTER_METATYPE)
+	mScriptRunnerArray.resize(to_underlying(ScriptType::Size));
+	REGISTER_DEVICES_WITH_TEMPLATE(REGISTER_METATYPE)
 	if (mailbox) {
 			connect(mailbox, &MailboxInterface::newMessage, this, [this](int senderNumber, QString message){
 				emit sendMailboxMessage(QString("mail: sender: %1 contents: %2")
@@ -61,6 +62,8 @@ TrikScriptRunner::TrikScriptRunner(trikControl::BrickInterface &brick
 TrikScriptRunner::~TrikScriptRunner()
 {
 	abortAll();
+	// Call it here for dtor to be compiled in this context, rather than in the including file's context
+	mScriptControl.reset();
 }
 
 void TrikScriptRunner::setDefaultRunner(ScriptType t)
@@ -72,9 +75,12 @@ void TrikScriptRunner::setDefaultRunner(const QString &languageExtension)
 {
 	if (languageExtension.contains("js")) {
 		mLastRunner = ScriptType::JAVASCRIPT;
-	} else if (languageExtension.contains("py")) {
+	}
+#ifndef TRIK_NOPYTHON
+	else if (languageExtension.contains("py")) {
 		mLastRunner = ScriptType::PYTHON;
 	}
+#endif
 }
 
 void TrikScriptRunner::registerUserFunction(const QString &name, QScriptEngine::FunctionSignature function)
@@ -104,9 +110,12 @@ QStringList TrikScriptRunner::knownMethodNamesFor(ScriptType t)
 
 void TrikScriptRunner::run(const QString &script, const QString &fileName)
 {
+#ifndef TRIK_NOPYTHON
 	if (fileName.endsWith(".py")) {
 		run(script, ScriptType::PYTHON, fileName);
-	} else { // default JS
+	} else
+#endif
+	{ // default JS
 		run(script, ScriptType::JAVASCRIPT, fileName);
 	}
 }
@@ -117,13 +126,15 @@ TrikScriptRunnerInterface * TrikScriptRunner::fetchRunner(ScriptType stype)
 	if (cell == nullptr) { // lazy creation
 		switch (stype) {
 			case ScriptType::JAVASCRIPT:
-				QScopedPointer<TrikScriptRunnerInterface>(
+				QSharedPointer<TrikScriptRunnerInterface>(
 							new TrikJavaScriptRunner(&mBrick, mMailbox, mScriptControl)).swap(cell);
 				break;
+#ifndef TRIK_NOPYTHON
 			case ScriptType::PYTHON:
-				QScopedPointer<TrikScriptRunnerInterface>(
+				QSharedPointer<TrikScriptRunnerInterface>(
 							new TrikPythonRunner(&mBrick, mMailbox, mScriptControl)).swap(cell);
 				break;
+#endif
 			default:
 				QLOG_ERROR() << "Can't handle script with unrecognized type: " << to_underlying(stype);
 				return nullptr;

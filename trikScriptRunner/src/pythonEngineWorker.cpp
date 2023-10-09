@@ -15,6 +15,7 @@
 #include <QProcess>
 #include <QsLog.h>
 #include <QVector>
+#include <QCoreApplication>
 
 #include <trikNetwork/mailboxInterface.h>
 #include <trikKernel/paths.h>
@@ -56,6 +57,10 @@ PythonEngineWorker::PythonEngineWorker(trikControl::BrickInterface *brick
 
 PythonEngineWorker::~PythonEngineWorker()
 {
+	if(thread() != QThread::currentThread()) {
+		QLOG_FATAL() << "~PythonEngineWorker threading issue";
+	}
+
 	stopScript();
 	{
 		// In python at least before 3.7 (3.5,3.6)
@@ -80,9 +85,7 @@ PythonEngineWorker::~PythonEngineWorker()
 		if (Py_FinalizeEx()) {
 			QLOG_ERROR() << "Failed to finalize python engine";
 		}
-
 #endif
-
 		if (PythonQt::self()) {
 			PythonQt::cleanup();
 		}
@@ -112,6 +115,20 @@ void PythonEngineWorker::init()
 		} else {
 			QLOG_INFO() << varName << ":" << path;
 		}
+#if PY_MINOR_VERSION >= 8
+		PyPreConfig pyPreconfig;
+		PyPreConfig_InitPythonConfig(&pyPreconfig);
+
+		pyPreconfig.utf8_mode = 1; /// Force UTF-8
+
+		if (PyStatus_Exception(Py_PreInitialize(&pyPreconfig))) {
+			auto const *e = "Failed to pre-initialize the Python engine";
+			QLOG_FATAL() << e;
+			throw trikKernel::InternalErrorException(e);
+		}
+
+		/// NB! Py_DecodeLocale requires a pre-initialized Python engine
+#endif
 		/// TODO: Must point to local .zip file
 		mPythonPath = Py_DecodeLocale(path.toStdString().data(), nullptr);
 		Py_SetPath(mPythonPath);
@@ -119,16 +136,17 @@ void PythonEngineWorker::init()
 		mProgramName = Py_DecodeLocale("trikPythonRuntime", nullptr);
 		Py_SetProgramName(mProgramName);
 
-/* uncomment for verbosity
-		Py_VerboseFlag = 3;
-		Py_InspectFlag = 1;
-		Py_DebugFlag = 2;
-// */
+		if (!qgetenv("TRIK_PYTHON_DEBUG").isEmpty()) {
+			Py_VerboseFlag = 3;
+			Py_InspectFlag = 1;
+			Py_DebugFlag = 2;
+		}
+
 		Py_IsolatedFlag = 1;
 		Py_BytesWarningFlag = 3;
 		Py_DontWriteBytecodeFlag = 1;
-		Py_NoSiteFlag = 1;
-		Py_NoUserSiteDirectory = 1;
+//		Py_NoSiteFlag = 1;
+//		Py_NoUserSiteDirectory = 1;
 #if PY_MAJOR_VERSION != 3
 #error "Unsupported PYTHON version"
 #else
