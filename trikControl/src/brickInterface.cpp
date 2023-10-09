@@ -14,7 +14,8 @@
 
 #include "brickInterface.h"
 
-trikControl::BrickInterface::BrickInterface()
+trikControl::BrickInterface::BrickInterface(QObject *parent)
+	: QObject(parent)
 {
 	qRegisterMetaType<QVector<uint8_t>>("QVector<uint8_t>");
 	qRegisterMetaType<QVector<int>>("QVector<int>");

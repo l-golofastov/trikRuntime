@@ -14,27 +14,27 @@
 
 #pragma once
 
-#include <QtScript/QScriptEngine>
+#include <QtQml/QJSEngine>
 
 namespace trikScriptRunner {
 
-/// Contains common useful methods for QtScript usage.
+/// Contains common useful methods for Qt scripting usage.
 class Utils
 {
 public:
 	/// Creates new instance of script value copying there all insufficient data from prototype.
 	/// @param prototype - object to copy.
 	/// @paragraph engine - an engine that should own new object.
-	static QScriptValue clone(const QScriptValue &prototype, QScriptEngine * engine);
+	static QJSValue clone(const QJSValue &prototype, QJSEngine * engine);
 
 	/// Copies data into target from prototype.
 	/// @param prototype - copy source.
 	/// @param target - copy target.
 	/// @paragraph engine - an engine that should own new objects.
-	static void copyRecursivelyTo(const QScriptValue &prototype, QScriptValue &target, QScriptEngine *engine);
+	static void copyRecursivelyTo(const QJSValue &prototype, QJSValue &target, QJSEngine *engine);
 
 	/// Returns true if a given script value is an object and if it has a property with a given name.
-	static bool hasProperty(const QScriptValue &object, const QString &property);
+	static bool hasProperty(const QJSValue &object, const QString &property);
 };
 
 }

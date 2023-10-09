@@ -23,10 +23,6 @@ links(trikQsLog trikControl trikCommunicator trikNetwork trikKernel)
 TEMPLATE = app
 CONFIG += console
 
-QT += gui
-
-if (equals(QT_MAJOR_VERSION, 5)) {
-	QT += widgets
-}
+QT += gui widgets
 
 installs()

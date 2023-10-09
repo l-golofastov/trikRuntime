@@ -27,18 +27,30 @@
 using namespace tests;
 constexpr auto EXIT_SCRIPT_SUCCESS = EXIT_SUCCESS;
 
-QScriptValue scriptAssert(QScriptContext *context, QScriptEngine *engine)
+QJSValue scriptAssert(QJSValue args)
 {
+	QJSEngine *engine = new QJSEngine();
 	Q_UNUSED(engine)
 
-	if (context->argumentCount() != 1) {
+	QJSValueList context;
+	auto length = args.property("length");
+	if(length.isNumber()){
+		for(int i = 0, intLength = length.toInt(); i < intLength; ++i){
+			context << args.property(static_cast<quint32>(i));
+		}
+	} else if(!args.isUndefined()){
+		context << args;
+	}
+
+	if (context.count() != 1) {
 		ADD_FAILURE() << "'assert' shall have exactly one argument";
 		return {};
 	}
 
-	if (!context->argument(0).toBool()) {
-		ADD_FAILURE() << "Assertion failure at\n"
-				<< QStringList(context->backtrace().mid(1)).join("\n").toStdString();
+	if (!context.value(0).toBool()) {
+		ADD_FAILURE() << "Assertion failure at\n";
+//				<< QStringList(context->backtrace().mid(1)).join("\n").toStdString();
+
 	}
 
 	return {};
@@ -142,10 +154,18 @@ TEST_F(TrikJsRunnerTest, twoProgramsTest)
 	tests::utils::Wait::wait(600);
 }
 
-TEST_F(TrikJsRunnerTest, printTest)
+TEST_F(TrikJsRunnerTest, printTestHello)
 {
 	const QString text = "Hello";
 	auto err = runDirectCommandAndWaitForQuit("print('" + text + "');script.quit();");
+	ASSERT_EQ(err, EXIT_SCRIPT_SUCCESS);
+	ASSERT_EQ(text + '\n', mStdOut);
+}
+
+TEST_F(TrikJsRunnerTest, printTestFour)
+{
+	const QString text = "4";
+	auto err = runDirectCommandAndWaitForQuit("print(4);script.quit();");
 	ASSERT_EQ(err, EXIT_SCRIPT_SUCCESS);
 	ASSERT_EQ(text + '\n', mStdOut);
 }

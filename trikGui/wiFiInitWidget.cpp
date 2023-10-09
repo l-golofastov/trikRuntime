@@ -46,7 +46,7 @@ WiFiInitWidget::WiFiInitWidget(QWidget *parent)
 
 	connect(&mProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished)
 			, this, &WiFiInitWidget::onProcessFinished);
-	connect(&mProcess, QOverload<QProcess::ProcessError>::of(&QProcess::error), this, &WiFiInitWidget::onProcessError);
+	//connect(&mProcess, QOverload<QProcess::ProcessError>::of(&QProcess::error), this, &WiFiInitWidget::onProcessError);
 	connect(&mProcess, &QProcess::errorOccurred, this, &WiFiInitWidget::onProcessError);
 
 }

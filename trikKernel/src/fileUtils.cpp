@@ -32,7 +32,7 @@ QString FileUtils::readFromFile(const QString &fileName)
 
 	QTextStream input;
 	input.setDevice(&file);
-	input.setCodec("UTF-8");
+	input.setEncoding(QStringConverter::Encoding::Utf8);
 	const QString result = input.readAll();
 	file.close();
 
@@ -55,7 +55,7 @@ void FileUtils::writeToFile(const QString &fileName, const QString &contents, co
 	}
 
 	QTextStream stream(&file);
-	stream.setCodec("UTF-8");
+	stream.setEncoding(QStringConverter::Encoding::Utf8);
 	stream << contents;
 	file.close();
 }

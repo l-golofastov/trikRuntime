@@ -16,6 +16,7 @@
 #include <trikKernel/version.h>
 
 #include <QtGui/QKeyEvent>
+#include <QtCore/QFile>
 #include <QtNetwork/QNetworkInterface>
 
 using namespace trikGui;

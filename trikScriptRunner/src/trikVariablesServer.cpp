@@ -15,7 +15,6 @@
 #include "trikVariablesServer.h"
 
 #include <QtCore/QJsonDocument>
-#include <QtCore/QRegExp>
 #include <QtNetwork/QTcpSocket>
 #include <QsLog.h>
 using namespace trikScriptRunner;
@@ -67,8 +66,8 @@ void TrikVariablesServer::processHTTPRequest()
 		list.append(data);
 	}
 
-	const QString cleanString = list.join("").remove(QRegExp(R"([\n\t\r])"));
-	const QStringList words = cleanString.split(QRegExp("\\s+"), QString::SkipEmptyParts);
+	const QString cleanString = list.join("").remove(QRegularExpression(R"([\n\t\r])"));
+	const QStringList words = cleanString.split(QRegularExpression("\\s+"), Qt::SplitBehaviorFlags::SkipEmptyParts);
 
 	if (words[1] == "/web/") {
 		emit getVariables("web");

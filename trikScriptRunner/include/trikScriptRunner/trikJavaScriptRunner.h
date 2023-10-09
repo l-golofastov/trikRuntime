@@ -46,8 +46,8 @@ public:
 
 	~TrikJavaScriptRunner() override;
 
-	void registerUserFunction(const QString &name, QScriptEngine::FunctionSignature function) override;
-	void addCustomEngineInitStep(const std::function<void (QScriptEngine *)> &step) override;
+	void registerUserFunction(const QString &name, TrikScriptRunnerInterface::script_function_type function) override;
+	void addCustomEngineInitStep(const std::function<void (QJSEngine *)> &step) override;
 
 	QStringList knownMethodNames() const override;
 

@@ -14,15 +14,10 @@
 
 #include "guiWorker.h"
 
-#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
-	#include <QtGui/QStackedLayout>
-	#include <QtGui/QApplication>
-#else
-	#include <QtWidgets/QStackedLayout>
-	#include <QtWidgets/QPushButton>
-	#include <QtWidgets/QApplication>
-	#include <QtWidgets/QDialog>
-#endif
+#include <QtWidgets/QStackedLayout>
+#include <QtWidgets/QPushButton>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QDialog>
 
 #include <QtGui/QPixmap>
 
@@ -33,7 +28,7 @@
 
 using namespace trikControl;
 
-GuiWorker::GuiWorker()
+GuiWorker::GuiWorker(QObject *parent):QObject(parent)
 {
 }
 

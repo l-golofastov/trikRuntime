@@ -22,8 +22,7 @@
 
 #include <QtCore/QFileInfo>
 #include <QtMultimedia/QCamera>
-#include <QtMultimedia/QCameraImageCapture>
-#include <QtMultimedia/QCameraInfo>
+#include <QtMultimedia/QCameraDevice>
 
 #include <trikHal/hardwareAbstractionInterface.h>
 #include <trikHal/hardwareAbstractionFactory.h>

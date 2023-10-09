@@ -84,7 +84,7 @@ void SensorLever::paintEvent(QPaintEvent *)
 	if (hasFocus()) {
 		QStyleOptionFocusRect option;
 		option.initFrom(this);
-		option.backgroundColor = palette().color(QPalette::Background);
+		option.backgroundColor = palette().color(QPalette::Window);
 
 		painter.drawPrimitive(QStyle::PE_FrameFocusRect, option);
 	}

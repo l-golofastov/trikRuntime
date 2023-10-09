@@ -24,6 +24,7 @@
 #include "trikScriptRunnerInterface.h"
 #include "scriptable.h"
 #include "utils.h"
+#include "userFunctionWrapper.h"
 
 #include <QFileInfo>
 #include <QsLog.h>
@@ -36,9 +37,11 @@ using namespace trikScriptRunner;
 
 constexpr auto scriptEngineWorkerName = "__scriptEngineWorker";
 
-QScriptValue include(QScriptContext *context, QScriptEngine *engine)
+QJSValue include(QJSValue args)
 {
-	const auto &filename = context->argument(0).toString();
+	QJSEngine *engine = new QJSEngine();
+	QJSValueList context = ScriptEngineWorker::toJSValueList(args);
+	const auto &filename = context.value(0).toString();
 
 	const auto & scriptValue = engine->globalObject().property(scriptEngineWorkerName);
 	if (auto scriptWorkerValue = qobject_cast<ScriptEngineWorker *> (scriptValue.toQObject())) {
@@ -48,14 +51,17 @@ QScriptValue include(QScriptContext *context, QScriptEngine *engine)
 					{scriptWorkerValue->evalInclude(filename, engine);}, connection);
 	}
 
-	return QScriptValue();
+	return QJSValue();
 }
 
-QScriptValue print(QScriptContext *context, QScriptEngine *engine)
+QJSValue print(QJSValue args)
 {
+	QJSEngine *engine = new QJSEngine();
+	QJSValueList context = ScriptEngineWorker::toJSValueList(args);
+
 	QString result;
 	result.reserve(100000);
-	int argumentCount = context->argumentCount();
+	int argumentCount = context.size();
 	for (int i = 0; i < argumentCount; ++i) {
 		std::function<QString(const QVariant &)> prettyPrinter
 			= [&prettyPrinter](QVariant const & elem) {
@@ -82,7 +88,7 @@ QScriptValue print(QScriptContext *context, QScriptEngine *engine)
 				? arrayPrettyPrinter(elem.toList())
 				: elem.toString();
 		};
-		QScriptValue argument = context->argument(i);
+		QJSValue argument = context.value(i);
 		result.append(prettyPrinter(argument.toVariant()));
 	}
 
@@ -105,7 +111,7 @@ ScriptEngineWorker::ScriptEngineWorker(trikControl::BrickInterface *brick
 	: mBrick(brick)
 	, mMailbox(mailbox)
 	, mScriptControl(scriptControl)
-	, mThreading(this, *scriptControl)
+	, mThreading(this, scriptControl)
 	, mWorkingDirectory(trikKernel::Paths::userScriptsPath())
 {
 	connect(mScriptControl, &TrikScriptControlInterface::quitSignal,
@@ -122,7 +128,7 @@ void ScriptEngineWorker::brickBeep()
 	mBrick->playTone(2500, 20);
 }
 
-void ScriptEngineWorker::evalInclude(const QString &filename, QScriptEngine * const engine)
+void ScriptEngineWorker::evalInclude(const QString &filename, QJSEngine * const engine)
 {
 	QFileInfo fi(mWorkingDirectory, filename);
 	evalExternalFile(fi.absoluteFilePath(), engine);
@@ -172,11 +178,11 @@ void ScriptEngineWorker::stopScript()
 	QMetaObject::invokeMethod(&mThreading, &Threading::reset, Qt::QueuedConnection);
 
 	if (mDirectScriptsEngine) {
-		mDirectScriptsEngine->abortEvaluation();
+		mDirectScriptsEngine->setInterrupted(true);
 		QLOG_INFO() << "ScriptEngineWorker : ending interpretation";
-		const auto &msg = mDirectScriptsEngine->hasUncaughtException()
-				   ? mDirectScriptsEngine->uncaughtException().toString()
-				   : "";
+		const auto &msg = mDirectScriptsEngine->hasError()
+				? "Error occured, message can't be printed"
+				: "";
 		// This method is called from script.quit()
 		// Thus deletion of the mDirectScriptsEngine should be postponed
 		// Instead of deleteLater() we use zero timer
@@ -245,13 +251,13 @@ void ScriptEngineWorker::doRunDirect(const QString &command, int scriptId)
 	}
 
 	if (mDirectScriptsEngine) {
-		mDirectScriptsEngine->evaluate(command);
+		QJSValue result = evaluateScriptByDot(&(*mDirectScriptsEngine), command);
 
 		/// If script was stopped by quit(), engine will already be reset to nullptr in ScriptEngineWorker::stopScript.
 		QString msg;
-		if (mDirectScriptsEngine && mDirectScriptsEngine->hasUncaughtException()) {
+		if (mDirectScriptsEngine && result.isError()) {
 			QLOG_INFO() << "ScriptEngineWorker : ending interpretation of direct script";
-			msg = mDirectScriptsEngine->uncaughtException().toString();
+			msg = result.toString();
 			mDirectScriptsEngine.reset();
 		}
 		Q_EMIT completed(msg, mScriptId);
@@ -266,14 +272,14 @@ void ScriptEngineWorker::startScriptEvaluation(int scriptId)
 	emit startedScript(mScriptId);
 }
 
-void ScriptEngineWorker::evalExternalFile(const QString & filepath, QScriptEngine * const engine)
+void ScriptEngineWorker::evalExternalFile(const QString & filepath, QJSEngine * const engine)
 {
 	if (QFileInfo::exists(filepath)) {
-		engine->evaluate(trikKernel::FileUtils::readFromFile(filepath), filepath);
-		if (engine->hasUncaughtException()) {
-			const auto line = engine->uncaughtExceptionLineNumber();
-			const auto & message = engine->uncaughtException().toString();
-			const auto & backtrace = engine->uncaughtExceptionBacktrace().join("\n");
+		QJSValue result = evaluateScriptByDot(filepath, engine);
+		if (result.isError()) {
+			const auto line = result.property("lineNumber").toInt();
+			const auto &message = result.property("message").toString();
+			const auto &backtrace = result.property("stack").toString();
 			const auto & error = tr("Line %1: %2").arg(QString::number(line), message) + "\nBacktrace"+ backtrace;
 			emit completed(error, mScriptId);
 			QLOG_ERROR() << "Uncaught exception with error" << error;
@@ -295,35 +301,46 @@ void ScriptEngineWorker::onScriptRequestingToQuit()
 	stopScript();
 }
 
-static QScriptValue timeValToScriptValue(QScriptEngine *engine, const trikKernel::TimeVal &in)
+static QJSValue timeValToScriptValue(QJSEngine *engine, const trikKernel::TimeVal &in)
 {
-	QScriptValue obj = engine->newObject();
+	QJSValue obj = engine->newObject();
 	obj.setProperty("mcsec", in.packedUInt32());
 	return obj;
 }
 
-static void timeValFromScriptValue(const QScriptValue &object, trikKernel::TimeVal &out)
+static void timeValFromScriptValue(const QJSValue &object, trikKernel::TimeVal &out)
 {
-	out = trikKernel::TimeVal(0, object.property("mcsec").toInt32());
+	out = trikKernel::TimeVal(0, object.property("mcsec").toInt());
 }
 
-QScriptEngine * ScriptEngineWorker::createScriptEngine(bool supportThreads)
+QJSEngine * ScriptEngineWorker::createScriptEngine(bool supportThreads)
 {
-	QScriptEngine *engine = new QScriptEngine();
+	QJSEngine *engine = new QJSEngine();
 	QLOG_INFO() << "New script engine" << engine << ", thread:" << QThread::currentThread();
 
 	REGISTER_DEVICES_WITH_TEMPLATE(REGISTER_METATYPE_FOR_ENGINE)
 	REGISTER_METATYPE_FOR_ENGINE(trikScriptRunner::Threading)
 
 	Scriptable<QTimer>::registerMetatype(engine);
-	qScriptRegisterMetaType(engine, &timeValToScriptValue, &timeValFromScriptValue);
-	qScriptRegisterSequenceMetaType<QVector<int32_t>>(engine);
-	qScriptRegisterSequenceMetaType<QStringList>(engine);
-	qScriptRegisterSequenceMetaType<QVector<uint8_t>>(engine);
+	//qScriptRegisterMetaType(engine, &timeValToScriptValue, &timeValFromScriptValue);
+	//qScriptRegisterSequenceMetaType<QVector<int32_t>>(engine);
+	//qScriptRegisterSequenceMetaType<QStringList>(engine);
+	//qScriptRegisterSequenceMetaType<QVector<uint8_t>>(engine);
 
 	engine->globalObject().setProperty("brick", engine->newQObject(mBrick));
 	engine->globalObject().setProperty("script", engine->newQObject(mScriptControl));
 	engine->globalObject().setProperty(scriptEngineWorkerName, engine->newQObject(this));
+
+	if (QJSEngine::objectOwnership(mBrick) == QJSEngine::JavaScriptOwnership){
+		QJSEngine::setObjectOwnership(mBrick, QJSEngine::CppOwnership);
+	}
+	if (QJSEngine::objectOwnership(mScriptControl) == QJSEngine::JavaScriptOwnership){
+		QJSEngine::setObjectOwnership(mScriptControl, QJSEngine::CppOwnership);
+	}
+	if (QJSEngine::objectOwnership(this) == QJSEngine::JavaScriptOwnership){
+		QJSEngine::setObjectOwnership(this, QJSEngine::CppOwnership);
+	}
+
 
 	if (mMailbox) {
 		engine->globalObject().setProperty("mailbox", engine->newQObject(mMailbox));
@@ -333,6 +350,9 @@ QScriptEngine * ScriptEngineWorker::createScriptEngine(bool supportThreads)
 	// compatibility.
 	if (auto gamepad = mBrick->gamepad()) {
 		engine->globalObject().setProperty("gamepad", engine->newQObject(gamepad));
+		if (QJSEngine::objectOwnership(gamepad) == QJSEngine::JavaScriptOwnership){
+			QJSEngine::setObjectOwnership(gamepad, QJSEngine::CppOwnership);
+		}
 	}
 
 	if (supportThreads) {
@@ -345,17 +365,17 @@ QScriptEngine * ScriptEngineWorker::createScriptEngine(bool supportThreads)
 		step(engine);
 	}
 
-	engine->setProcessEventsInterval(1);
+	//engine->setProcessEventsInterval(1);
 	return engine;
 }
 
-QScriptEngine *ScriptEngineWorker::copyScriptEngine(const QScriptEngine * const original)
+QJSEngine *ScriptEngineWorker::copyScriptEngine(const QJSEngine * const original)
 {
-	QScriptEngine *const result = createScriptEngine();
+	QJSEngine *const result = createScriptEngine();
 
-	QScriptValue globalObject = result->globalObject();
+	QJSValue globalObject = result->globalObject();
 	Utils::copyRecursivelyTo(original->globalObject(), globalObject, result);
-	result->setGlobalObject(globalObject);
+	result->globalObject().setPrototype(globalObject.prototype());
 
 	// We need to re-eval system.js after global object copying because functions did not get copied by
 	// copyRecursivelyTo, and existing ones were overwritten by copying.
@@ -364,25 +384,38 @@ QScriptEngine *ScriptEngineWorker::copyScriptEngine(const QScriptEngine * const 
 	return result;
 }
 
-void ScriptEngineWorker::registerUserFunction(const QString &name, QScriptEngine::FunctionSignature function)
+void ScriptEngineWorker::registerUserFunction(const QString &name, TrikScriptRunnerInterface::script_function_type function)
 {
 	mRegisteredUserFunctions[name] = function;
 }
 
-void ScriptEngineWorker::addCustomEngineInitStep(const std::function<void (QScriptEngine *)> &step)
+void ScriptEngineWorker::addCustomEngineInitStep(const std::function<void (QJSEngine *)> &step)
 {
 	mCustomInitSteps.append(step);
 }
 
-void ScriptEngineWorker::evalSystemJs(QScriptEngine * const engine)
+void ScriptEngineWorker::evalSystemJs(QJSEngine * const engine)
 {
 	const QString systemJsPath = trikKernel::Paths::systemScriptsPath() + "system.js";
 	evalExternalFile(systemJsPath, engine);
 
-	for (const auto &functionName : mRegisteredUserFunctions.keys()) {
-		QScriptValue functionValue = engine->newFunction(mRegisteredUserFunctions[functionName]);
-		engine->globalObject().setProperty(functionName, functionValue);
+	//for (auto &&functionName : mRegisteredUserFunctions.keys()) {}
+
+	const auto &functionWrapper = engine->newQObject(new UserFunctionWrapper(engine));
+	//const auto &functionValue = functionWrapper->getUserFunctionValue();
+	engine->globalObject().setProperty("print", functionWrapper.property("print"));
+	engine->globalObject().setProperty("include", functionWrapper.property("include"));
+
+	if (QJSEngine::objectOwnership(mBrick) == QJSEngine::JavaScriptOwnership){
+		QJSEngine::setObjectOwnership(mBrick, QJSEngine::CppOwnership);
 	}
+	if (QJSEngine::objectOwnership(mScriptControl) == QJSEngine::JavaScriptOwnership){
+		QJSEngine::setObjectOwnership(mScriptControl, QJSEngine::CppOwnership);
+	}
+	if (QJSEngine::objectOwnership(this) == QJSEngine::JavaScriptOwnership){
+		QJSEngine::setObjectOwnership(this, QJSEngine::CppOwnership);
+	}
+
 }
 
 QStringList ScriptEngineWorker::knownMethodNames() const
@@ -396,4 +429,89 @@ QStringList ScriptEngineWorker::knownMethodNames() const
 	}
 	TrikScriptRunnerInterface::Helper::collectMethodNames(result, mThreading.metaObject());
 	return result.values();
+}
+
+QJSValueList ScriptEngineWorker::toJSValueList(QJSValue arg)
+{
+    QJSValueList list;
+    auto length = arg.property("length");
+    if(length.isNumber()){
+	for(int i = 0, intLength = length.toInt(); i < intLength; ++i){
+	    list << arg.property(static_cast<quint32>(i));
+	}
+    } else if(!arg.isUndefined()){
+	list << arg;
+    }
+    return list;
+}
+
+QJSValue ScriptEngineWorker::evaluateScriptByDot(QJSEngine * const engine, const QString &script)
+{
+	QJSValue result;
+	QStringList scripts = script.split(u';');
+
+	for (int i = 0; i < scripts.length(); ++i){
+		if (scripts[i].contains("print")){
+			scripts[i].replace("print", "").chop(1);
+			scripts[i] = scripts[i].mid(1);
+		}
+
+		QStringList words = scripts[i].split(u'.');
+		QString command;
+		foreach(QString word, words){
+			command.append(word);
+			result = engine->evaluate(command);
+
+			auto resultQObject = result.toQObject();
+			if (resultQObject != nullptr){
+				if (QJSEngine::objectOwnership(resultQObject) == QJSEngine::JavaScriptOwnership){
+					QJSEngine::setObjectOwnership(resultQObject, QJSEngine::CppOwnership);
+				}
+			}
+			command.append('.');
+		}
+
+	}
+
+	result = engine->evaluate(script);
+
+	return result;
+}
+
+QJSValue ScriptEngineWorker::evaluateScriptByDot(const QString & filepath, QJSEngine * const engine)
+{
+	QJSValue result;
+	QString script = trikKernel::FileUtils::readFromFile(filepath);
+	QStringList scripts = script.split(u';');
+
+	if (QFileInfo::exists(filepath)) {
+		for (int i = 0; i < scripts.length(); ++i){
+			if (scripts[i].contains("print")){
+				scripts[i].replace("print", "").chop(1);
+				scripts[i] = scripts[i].mid(1);
+			}
+
+			QStringList words = scripts[i].split(u'.');
+			QString command;
+
+			foreach(QString word, words){
+				command.append(word);
+				result = engine->evaluate(command, filepath);
+
+				auto resultQObject = result.toQObject();
+				if (resultQObject != nullptr){
+					if (QJSEngine::objectOwnership(resultQObject) == QJSEngine::JavaScriptOwnership){
+						QJSEngine::setObjectOwnership(resultQObject, QJSEngine::CppOwnership);
+					}
+				}
+
+				command.append('.');
+			}
+		}
+		result = engine->evaluate(script);
+	} else {
+		QLOG_ERROR() << "File not found, path:" << filepath;
+	}
+
+	return result;
 }

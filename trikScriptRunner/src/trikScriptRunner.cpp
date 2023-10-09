@@ -36,7 +36,7 @@ Q_DECLARE_METATYPE(QTimer*)
 /// @param mailbox - mailbox object used to communicate with other robots.
 TrikScriptRunner::TrikScriptRunner(trikControl::BrickInterface &brick
 								   , trikNetwork::MailboxInterface * const mailbox
-								   , TrikScriptControlInterface * scriptControl
+								   , QSharedPointer<TrikScriptControlInterface> scriptControl
 								   )
 	: mBrick(brick), mMailbox(mailbox), mScriptControl(scriptControl), mLastRunner(ScriptType::JAVASCRIPT)
 {
@@ -53,10 +53,11 @@ TrikScriptRunner::TrikScriptRunner(trikControl::BrickInterface &brick
 }
 
 TrikScriptRunner::TrikScriptRunner(trikControl::BrickInterface &brick
-								   , trikNetwork::MailboxInterface * const mailbox
-								   )
-	: TrikScriptRunner(brick, mailbox, new ScriptExecutionControl(&brick))
+				   , trikNetwork::MailboxInterface * const mailbox
+				   )
+	: TrikScriptRunner(brick, mailbox, QSharedPointer<ScriptExecutionControl>(new ScriptExecutionControl(&brick)))
 {
+	mScriptControl->setParent(this);
 }
 
 TrikScriptRunner::~TrikScriptRunner()
@@ -83,12 +84,12 @@ void TrikScriptRunner::setDefaultRunner(const QString &languageExtension)
 #endif
 }
 
-void TrikScriptRunner::registerUserFunction(const QString &name, QScriptEngine::FunctionSignature function)
+void TrikScriptRunner::registerUserFunction(const QString &name, TrikScriptRunnerInterface::script_function_type function)
 {
 	fetchRunner(mLastRunner)->registerUserFunction(name, function);
 }
 
-void TrikScriptRunner::addCustomEngineInitStep(const std::function<void (QScriptEngine *)> &step)
+void TrikScriptRunner::addCustomEngineInitStep(const std::function<void (QJSEngine *)> &step)
 {
 	fetchRunner(mLastRunner)->addCustomEngineInitStep(step);
 }

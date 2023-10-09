@@ -15,7 +15,7 @@
 #include "threading.h"
 
 #include <QtCore/QEventLoop>
-#include <QtScript/QScriptValueIterator>
+#include <QtQml/QJSEngine>
 #include <QJsonObject>
 
 #include "scriptEngineWorker.h"
@@ -26,7 +26,7 @@
 
 using namespace trikScriptRunner;
 
-Threading::Threading(ScriptEngineWorker *scriptWorker, TrikScriptControlInterface &scriptControl)
+Threading::Threading(ScriptEngineWorker *scriptWorker, TrikScriptControlInterface *scriptControl)
 	: QObject(scriptWorker)
 	, mScriptWorker(scriptWorker)
 	, mScriptControl(scriptControl)
@@ -46,19 +46,21 @@ void Threading::startMainThread(const QString &script)
 	mFinishedThreads.clear();
 	mPreventFromStart.clear();
 
-	const QRegExp mainRegexp(R"#((.*var main\s*=\s*\w*\s*function\(.*\).*)|(.*function\s+%1\s*\(.*\).*))#");
-	const bool needCallMain = mainRegexp.exactMatch(script) && !script.trimmed().endsWith("main();");
+	const QRegularExpression mainRegexp(R"#((.*var main\s*=\s*\w*\s*function\(.*\).*)|(.*function\s+%1\s*\(.*\).*))#");
+	const bool needCallMain = mainRegexp.match(script).hasMatch() && !script.trimmed().endsWith("main();");
 
 	mMainScriptEngine = mScriptWorker->createScriptEngine();
 	startThread(mMainThreadName, mMainScriptEngine, needCallMain ? script + "\nmain();" : script);
 }
 
-void Threading::startThread(const QScriptValue &threadId, const QScriptValue &function)
+void Threading::startThread(const QJSValue &threadId, const QJSValue &function)
 {
-	startThread(threadId.toString(), cloneEngine(function.engine()), mScript + "\n" + function.toString() + "();");
+	auto engine = qjsEngine(this);
+	startThread(threadId.toString(), cloneEngine(engine), mScript + "\n" + function.toString() + "();");
+
 }
 
-void Threading::startThread(const QString &threadId, QScriptEngine *engine, const QString &script)
+void Threading::startThread(const QString &threadId, QJSEngine *engine, const QString &script)
 {
 	QMutexLocker resetMutexLocker(&mResetMutex);
 
@@ -88,7 +90,7 @@ void Threading::startThread(const QString &threadId, QScriptEngine *engine, cons
 	engine->moveToThread(thread);
 
 	connect(thread, &QThread::finished, this, [this, threadId](){ threadFinished(threadId); });
-	connect(&mScriptControl, &TrikScriptControlInterface::quitSignal, thread
+	connect(mScriptControl, &TrikScriptControlInterface::quitSignal, thread
 			, &ScriptThread::stopRunning, Qt::DirectConnection);
 	if (threadId == mMainThreadName) {
 		connect(this, &Threading::getVariables, thread, &ScriptThread::onGetVariables);
@@ -141,10 +143,10 @@ void Threading::joinThread(const QString &threadId)
 	mThreads[threadId]->wait();
 }
 
-QScriptEngine * Threading::cloneEngine(QScriptEngine *engine)
+QJSEngine * Threading::cloneEngine(QJSEngine *engine)
 {
-	QScriptEngine *result = mScriptWorker->copyScriptEngine(engine);
-	result->evaluate(mScript);
+	QJSEngine *result = mScriptWorker->copyScriptEngine(engine);
+	QJSValue evaluationResult = ScriptEngineWorker::evaluateScriptByDot(result, mScript);
 	return result;
 }
 
@@ -167,13 +169,13 @@ void Threading::reset()
 	mThreadsMutex.lock();
 
 	for (auto &&thread : mThreads) {
-		mScriptControl.reset();  // TODO: find more sophisticated solution to prevent waiting after abortion
+		mScriptControl->reset();  // TODO: find more sophisticated solution to prevent waiting after abortion
 		thread->abort();
 	}
 
 	mFinishedThreads.clear();
 	mThreadsMutex.unlock();
-	mScriptControl.reset();
+	mScriptControl->reset();
 
 	waitForAll();
 
@@ -212,7 +214,7 @@ void Threading::threadFinished(const QString &id)
 	}
 }
 
-void Threading::sendMessage(const QString &threadId, const QScriptValue &message)
+void Threading::sendMessage(const QString &threadId, const QJSValue &message)
 {
 	if (!tryLockReset()) {
 		return;
@@ -231,10 +233,10 @@ void Threading::sendMessage(const QString &threadId, const QScriptValue &message
 	mResetMutex.unlock();
 }
 
-QScriptValue Threading::receiveMessage(bool waitForMessage)
+QJSValue Threading::receiveMessage(bool waitForMessage)
 {
 	if (!tryLockReset()) {
-		return QScriptValue();
+		return QJSValue();
 	}
 
 	QString threadId = qobject_cast<ScriptThread *>(QThread::currentThread())->id();
@@ -246,7 +248,7 @@ QScriptValue Threading::receiveMessage(bool waitForMessage)
 
 	QMutex *mutex = mMessageQueueMutexes[threadId];
 	QWaitCondition *condition = mMessageQueueConditions[threadId];
-	QQueue<QScriptValue> &queue = mMessageQueues[threadId];
+	QQueue<QJSValue> &queue = mMessageQueues[threadId];
 	mMessageMutex.unlock();
 
 	mutex->lock();
@@ -254,18 +256,18 @@ QScriptValue Threading::receiveMessage(bool waitForMessage)
 		mResetMutex.unlock();
 		if (!waitForMessage) {
 			mutex->unlock();
-			return QScriptValue("");
+			return QJSValue("");
 		}
 
 		condition->wait(mutex);
 		if (!tryLockReset()) {
 			mutex->unlock();
-			return QScriptValue();
+			return QJSValue();
 		}
 	}
 
 	mutex->unlock();
-	QScriptValue result = queue.dequeue();
+	QJSValue result = queue.dequeue();
 	mResetMutex.unlock();
 	return result;
 }
@@ -311,5 +313,5 @@ bool Threading::tryLockReset()
 
 bool Threading::inEventDrivenMode() const
 {
-	return mScriptControl.isInEventDrivenMode();
+	return mScriptControl->isInEventDrivenMode();
 }

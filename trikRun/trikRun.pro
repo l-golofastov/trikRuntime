@@ -28,13 +28,10 @@ links(trikQsLog trikKernel trikControl trikScriptRunner trikNetwork)
 
 
 TEMPLATE = app
-CONFIG += console
+CONFIG += console cmdline
 
-QT += gui
-
-if (equals(QT_MAJOR_VERSION, 5)) {
-	QT += widgets
-}
+QT += gui widgets
+qml_debug:QT+=qml
 
 TRANSLATIONS = \
 	$$PWD/../translations/ru/trikRun_ru.ts \

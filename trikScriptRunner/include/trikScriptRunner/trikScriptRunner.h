@@ -36,7 +36,7 @@ public:
 	/// @param scriptControl - implementation of script object
 	TrikScriptRunner(trikControl::BrickInterface &brick
 					 , trikNetwork::MailboxInterface * mailbox
-					 , TrikScriptControlInterface * scriptControl
+					 , QSharedPointer<TrikScriptControlInterface> scriptControl
 					 );
 
 	/// Constructor.
@@ -54,8 +54,8 @@ public:
 	/// Choose default runner type (Python or JavaScript) from extension
 	void setDefaultRunner(const QString &languageExtension);
 
-	void registerUserFunction(const QString &name, QScriptEngine::FunctionSignature function) override;
-	void addCustomEngineInitStep(const std::function<void (QScriptEngine *)> &step) override;
+	void registerUserFunction(const QString &name, TrikScriptRunnerInterface::script_function_type function) override;
+	void addCustomEngineInitStep(const std::function<void (QJSEngine *)> &step) override;
 	bool wasError() override;
 
 	/// Create completion list for interpreted language

@@ -13,10 +13,13 @@
  * limitations under the License. */
 
 #include "scriptThread.h"
+#include "scriptEngineWorker.h"
 
 #include <QtCore/QEventLoop>
 #include <QtCore/QDateTime>
-#include <QScriptValueIterator>
+#include <QtQml/QJSEngine>
+#include <QtQml/QJSValueIterator>
+#include <QRandomGenerator>
 #include <QJsonObject>
 
 #include "threading.h"
@@ -24,7 +27,7 @@
 
 using namespace trikScriptRunner;
 
-ScriptThread::ScriptThread(Threading &threading, const QString &id, QScriptEngine *engine, const QString &script)
+ScriptThread::ScriptThread(Threading &threading, const QString &id, QJSEngine *engine, const QString &script)
 	: mId(id)
 	, mEngine(engine)
 	, mScript(script)
@@ -40,17 +43,17 @@ void ScriptThread::run()
 {
 	QLOG_INFO() << "Started thread" << this;
 
-	qsrand(QDateTime::currentMSecsSinceEpoch());
+	//QRandomGenerator::global()->seed(QDateTime::currentMSecsSinceEpoch());
 
-	mEngine->evaluate(mScript);
+	QJSValue result = ScriptEngineWorker::evaluateScriptByDot(&(*mEngine), mScript);
 
-	if (mEngine->hasUncaughtException()) {
-		const auto line = mEngine->uncaughtExceptionLineNumber();
-		const auto &message = mEngine->uncaughtException().toString();
-		const auto &backtrace = mEngine->uncaughtExceptionBacktrace();
+	if (result.isError()) {
+		const auto line = result.property("lineNumber").toInt();
+		const auto &message = result.property("message").toString();
+		const auto &backtrace = result.property("stack").toString();
 		mError = tr("Line %1: %2").arg(QString::number(line), message);
 		if (!backtrace.isEmpty()) {
-			mError += "\n" + backtrace.join('\n');
+			mError += "\n" + backtrace;
 		}
 		QLOG_ERROR() << "Uncaught exception with next backtrace" << backtrace;
 	} else if (mThreading.inEventDrivenMode()) {
@@ -66,7 +69,7 @@ void ScriptThread::run()
 void ScriptThread::abort()
 {
 	if (isEvaluating()) {
-		mEngine->abortEvaluation();
+		mEngine->setInterrupted(true);
 	}
 	emit stopRunning();
 }
@@ -83,7 +86,7 @@ QString ScriptThread::error() const
 
 bool ScriptThread::isEvaluating() const
 {
-	return mEngine && mEngine->isEvaluating();
+	return mEngine && !(mEngine->isInterrupted());
 }
 
 // TODO: Fix design error. This slot is called on wrong thread (probably)
@@ -91,7 +94,7 @@ bool ScriptThread::isEvaluating() const
 void ScriptThread::onGetVariables(const QString &propertyName)
 {
 	if (mEngine != nullptr) {
-		QScriptValueIterator it(mEngine->globalObject().property(propertyName));
+		QJSValueIterator it(mEngine->globalObject().property(propertyName));
 		QJsonObject json;
 		while (it.hasNext()) {
 			it.next();

@@ -50,7 +50,7 @@ class TRIKCONTROL_EXPORT BrickInterface : public QObject
 
 public:
 	/// Registers required metatypes
-	BrickInterface();
+	BrickInterface(QObject *parent = nullptr);
 
 	/// Do reset (stop motors, reset keys, clear screen, etc). We should call it before executing any script
 	/// with this instance.

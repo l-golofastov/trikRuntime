@@ -14,7 +14,11 @@
 
 #pragma once
 
-#include <QtScript/QScriptEngine>
+#include <qglobal.h>
+
+#include <QtQml/QJSEngine>
+
+class QJSEngine;
 
 namespace trikScriptRunner {
 
@@ -25,18 +29,19 @@ public:
 	Scriptable() = delete;
 
 	/// Registers converters from and to script values for a given script engine.
-	static void registerMetatype(QScriptEngine *engine)
+	static void registerMetatype(QJSEngine *engine)
 	{
-		qScriptRegisterMetaType(engine, toScriptValue, fromScriptValue);
+		Q_UNUSED(engine)
 	}
 
 private:
-	static QScriptValue toScriptValue(QScriptEngine *engine, T* const &in)
+	static QJSValue toScriptValue(QJSEngine *engine, T* const &in)
 	{
+		Q_UNUSED(engine)
 		return engine->newQObject(in);
 	}
 
-	static void fromScriptValue(const QScriptValue &object, T* &out)
+	static void fromScriptValue(const QJSValue &object, T* &out)
 	{
 		out = qobject_cast<T*>(object.toQObject());
 	}

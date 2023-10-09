@@ -88,7 +88,7 @@ void AccelerometerWidget::paintEvent(QPaintEvent *)
 
 	// draw big circle
 	QPainter painter(&pixmap);
-	painter.setRenderHint(QPainter::HighQualityAntialiasing);
+	painter.setRenderHint(QPainter::Antialiasing);
 
 	painter.setPen(QPen(QBrush(Qt::black), mBounds.width() * 0.005));
 	painter.setBrush(QBrush(Qt::transparent));
