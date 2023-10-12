@@ -32,7 +32,7 @@ class TRIKCONTROL_EXPORT DisplayWidgetInterface : public QWidget
 	Q_OBJECT
 	Q_DISABLE_COPY(DisplayWidgetInterface)
 public:
-	DisplayWidgetInterface() = default;
+	DisplayWidgetInterface(QWidget *parent = nullptr);
 	~DisplayWidgetInterface() override = default;
 
 signals:
@@ -42,5 +42,7 @@ signals:
 	/// Emitted when widget is hidden.
 	void hidden();
 };
+
+inline DisplayWidgetInterface::DisplayWidgetInterface(QWidget *parent): QWidget(parent) {}
 
 }

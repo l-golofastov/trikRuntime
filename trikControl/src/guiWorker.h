@@ -40,7 +40,7 @@ class GuiWorker : public QObject
 	Q_OBJECT
 
 public:
-	GuiWorker();
+	explicit GuiWorker(QObject *parent = nullptr);
 
 	/// Returns a widget on which everything is drawn.
 	DisplayWidgetInterface &graphicsWidget();

@@ -43,6 +43,7 @@ HEADERS += \
 	$$PWD/src/threading.h \
 	$$PWD/src/utils.h \
 	$$PWD/src/scriptThread.h \
+	$$PWD/src/userFunctionWrapper.h \
 	$$PWD/include/trikScriptRunner/trikScriptRunnerInterface.h \
 	$$PWD/include/trikScriptRunner/trikJavaScriptRunner.h \
 	$$PWD/include/trikScriptRunner/trikVariablesServer.h \
@@ -57,7 +58,8 @@ SOURCES += \
 	$$PWD/src/utils.cpp \
 	$$PWD/src/scriptThread.cpp \
 	$$PWD/src/trikVariablesServer.cpp \
-	$$PWD/src/trikScriptControlInterface.cpp
+	$$PWD/src/trikScriptControlInterface.cpp \
+	$$PWD/src/userFunctionWrapper.cpp
 
 !trik_nopython {
 	HEADERS += \
@@ -83,7 +85,7 @@ TRANSLATIONS = \
 	$$PWD/../translations/ru/trikScriptRunner_ru.ts \
 	$$PWD/../translations/fr/trikScriptRunner_fr.ts \
 
-QT += script network
+QT += qml network
 
 DEFINES += TRIKSCRIPTRUNNER_LIBRARY
 trik_nopython:DEFINES += TRIK_NOPYTHON

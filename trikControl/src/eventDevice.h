@@ -16,6 +16,7 @@
 
 #include <QtCore/QSharedPointer>
 #include <QThread>
+#include <QtCore/QHash>
 
 #include "eventDeviceInterface.h"
 #include "deviceState.h"

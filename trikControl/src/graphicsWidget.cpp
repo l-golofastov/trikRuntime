@@ -26,7 +26,8 @@
 
 using namespace trikControl;
 
-GraphicsWidget::GraphicsWidget()
+GraphicsWidget::GraphicsWidget(QWidget *parent)
+       : DisplayWidgetInterface(parent)
 {
 	setAutoFillBackground(true);
 }

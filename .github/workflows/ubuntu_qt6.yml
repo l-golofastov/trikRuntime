@@ -1,0 +1,83 @@
+name: GitHub CI
+on:
+  push:
+    branches:
+  pull_request:
+    branches:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            os-name: linux
+            qt-version: '6.2.*'
+            modules: 'qtmultimedia qtserialport'
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: ${{ matrix.qt-version }}
+          host: ${{ matrix.os-name }}
+          arch: ${{ startsWith(matrix.os-name, 'win') && format('win32_mingw{0}', matrix.mingw-short-version) || ''}}
+          tools: ${{ startsWith(matrix.os-name, 'win') && format('tools_mingw,qt.tools.win32_mingw{0}0', matrix.mingw-short-version) || '' }}
+          modules: ${{ matrix.modules }}
+
+      - name: Install dependencies 
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y gstreamer1.0-plugins-bad gstreamer1.0-libav gstreamer1.0-plugins-base
+
+      - name: Update PATH
+        if: ${{ startsWith(matrix.os-name, 'win') }}
+        run: |
+             set -xue
+             cygpath -w /usr/bin >> $GITHUB_PATH
+             cygpath -w "${IQTA_TOOLS}/mingw${{matrix.mingw-short-version}}0_32/bin" >> $GITHUB_PATH
+             cygpath -w "${Qt5_Dir}/bin" >> $GITHUB_PATH
+
+      - name: Check available tools
+        run: |
+             set -xueo pipefail
+             echo $PATH
+             uname -a
+             qmake --version
+             make --version
+             g++ --version
+             git --version
+
+      - name: Configure git
+        run: |
+            git config --global core.symlinks true
+            git config --global core.autocrlf true
+
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Update submodule locally
+        run: |
+            cd /home/runner/work/trikRuntime/trikRuntime/qslog/qslog
+            cp /home/runner/work/trikRuntime/trikRuntime/filesToChange/* .
+            cd ../..
+        working-directory: /home/runner/work/trikRuntime/trikRuntime
+
+      - name: QMake
+        run: 'qmake trikRuntime.pro -spec linux-g++ CONFIG-=qml_debug CONFIG+=trik_nopython CONFIG+=noPch CONFIG+=tests CONFIG+=sanitizer CONFIG+=sanitize_undefined CONFIG+=c++17 CONFIG+=release'
+
+      - name: QMake all
+        timeout-minutes: 1
+        run: make -j $(nproc) qmake_all
+
+      - name: Make all
+        timeout-minutes: 10
+        run: make -j $(nproc) all

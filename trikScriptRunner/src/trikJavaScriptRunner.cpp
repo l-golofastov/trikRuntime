@@ -65,12 +65,12 @@ TrikJavaScriptRunner::~TrikJavaScriptRunner()
 	wait.exec();
 }
 
-void TrikJavaScriptRunner::registerUserFunction(const QString &name, QScriptEngine::FunctionSignature function)
+void TrikJavaScriptRunner::registerUserFunction(const QString &name, TrikScriptRunnerInterface::script_function_type function)
 {
 	mScriptEngineWorker->registerUserFunction(name, function);
 }
 
-void TrikJavaScriptRunner::addCustomEngineInitStep(const std::function<void (QScriptEngine *)> &step)
+void TrikJavaScriptRunner::addCustomEngineInitStep(const std::function<void (QJSEngine *)> &step)
 {
 	mScriptEngineWorker->addCustomEngineInitStep(step);
 }

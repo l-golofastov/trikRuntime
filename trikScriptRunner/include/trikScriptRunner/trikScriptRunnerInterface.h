@@ -19,7 +19,8 @@
 #include <QtCore/QObject>
 #include <QtCore/QScopedPointer>
 #include <QtCore/QThread>
-#include <QtScript/QScriptEngine>
+#include <QtQml/QJSValue>
+#include <QtQml/QJSEngine>
 
 #include <trikControl/batteryInterface.h>
 #include <trikControl/colorSensorInterface.h>
@@ -101,11 +102,12 @@ class TRIKSCRIPTRUNNER_EXPORT TrikScriptRunnerInterface : public QObject
 	Q_OBJECT
 
 public:
+	typedef std::function<QJSValue (QString)> script_function_type;
 	/// Registers given C++ function as callable from script, with given name.
-	virtual void registerUserFunction(const QString &name, QScriptEngine::FunctionSignature function) = 0;
+	virtual void registerUserFunction(const QString &name,  script_function_type function) = 0;
 
 	/// Adds custom initialization steps when creating script engine (useful when used from outside of the TrikRuntime).
-	virtual void addCustomEngineInitStep(const std::function<void (QScriptEngine *)> &step) = 0;
+	virtual void addCustomEngineInitStep(const std::function<void (QJSEngine *)> &step) = 0;
 
 	/// Gets all method names from executive objects (brick, script, etc.) from ScriptEngineWorker
 	/// (useful when used from outside of the TrikRuntime).

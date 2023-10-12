@@ -227,7 +227,7 @@ void Connection::resetSocket()
 	connect(mSocket.data(), &QTcpSocket::readyRead, this, &Connection::onReadyRead);
 	connect(mSocket.data(), &QTcpSocket::connected, this, &Connection::onConnect);
 	connect(mSocket.data(), &QTcpSocket::disconnected, this, &Connection::onDisconnect);
-	connect(mSocket.data(), QOverload<QAbstractSocket::SocketError>::of(&QTcpSocket::error)
+	connect(mSocket.data(), QOverload<QAbstractSocket::SocketError>::of(&QTcpSocket::errorOccurred)
 			, this, &Connection::onError);
 }
 

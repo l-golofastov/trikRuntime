@@ -15,6 +15,7 @@
 #include "tonePlayer.h"
 
 #include <QsLog.h>
+#include <QMediaDevices>
 
 using namespace trikControl;
 
@@ -22,29 +23,25 @@ TonePlayer::TonePlayer()
 {
 	mTimer.setSingleShot(true);
 	initializeAudio();
-	mDevice = new AudioSynthDevice(mFormat.sampleRate(), mFormat.sampleSize(), this);
-	mOutput = new QAudioOutput(mFormat, this);
+	mDevice = new AudioSynthDevice(mFormat.sampleRate(), SAMPLE_SIZE, this);
+	mOutput = new QAudioSink(mFormat, this);
 }
 
 void TonePlayer::initializeAudio()
 {
 	mFormat.setChannelCount(CHANNEL_COUNT);
 	mFormat.setSampleRate(SAMPLE_RATE);
-	mFormat.setSampleSize(SAMPLE_SIZE);
-	mFormat.setSampleType(QAudioFormat::SampleType::SignedInt);
-	mFormat.setCodec("audio/pcm");
+	mFormat.setSampleFormat(QAudioFormat::Int16);
 
 	connect(&mTimer, &QTimer::timeout, this, &TonePlayer::stop);
 
-	QAudioDeviceInfo info(QAudioDeviceInfo::defaultOutputDevice());
+	QAudioDevice info(QMediaDevices::defaultAudioOutput());
 	if (!info.isFormatSupported(mFormat)) {
-		mFormat = info.nearestFormat(mFormat);
+		QList<QAudioFormat::SampleFormat> supportedFormats = info.supportedSampleFormats();
 		QLOG_INFO() << "Specified format is not supported. The nearest one is:"
 					<< "channel count: " << mFormat.channelCount() << ";"
 					<< "sample rate: " << mFormat.sampleRate() << ";"
-					<< "sample size: " << mFormat.sampleSize() << ";"
-					<< "sample type: " << mFormat.sampleType() << ";"
-					<< "codec: " << mFormat.codec();
+					<< "sample format: " << mFormat.sampleFormat() << ";";
 	}
 }
 
@@ -68,7 +65,7 @@ void TonePlayer::play(int freqHz, int durationMs)
 		case QAudio::IdleState:
 			mOutput->start(mDevice);
 			break;
-		case QAudio::InterruptedState:
+		default:
 				QLOG_ERROR() << "Audio device was interrupted previously";
 				mOutput->start(mDevice);
 			break;

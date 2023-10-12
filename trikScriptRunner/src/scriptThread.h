@@ -15,14 +15,15 @@
 #pragma once
 
 #include <QtCore/QThread>
-#include <QtScript/QScriptEngine>
 #include "trikScriptRunnerDeclSpec.h"
+
+class QJSEngine;
 
 namespace trikScriptRunner {
 
 class Threading;
 
-/// Thread object which executes a script with a QScriptEngine
+/// Thread object which executes a script with a QJSEngine
 class TRIKSCRIPTRUNNER_EXPORT ScriptThread : public QThread
 {
 	Q_OBJECT
@@ -30,9 +31,9 @@ class TRIKSCRIPTRUNNER_EXPORT ScriptThread : public QThread
 public:
 	/// Constructor
 	/// @param threading - threading manager for this thread
-	/// @param engine - QScriptEngine which will do the work
+	/// @param engine - QJSEngine which will do the work
 	/// @param script - a Qt Script to run
-	ScriptThread(Threading &threading, const QString &id, QScriptEngine *engine, const QString &script);
+	ScriptThread(Threading &threading, const QString &id, QJSEngine *engine, const QString &script);
 
 	~ScriptThread() override;
 
@@ -67,7 +68,7 @@ protected:
 private:
 	QString mId;
 
-	QScopedPointer<QScriptEngine> mEngine;
+	QScopedPointer<QJSEngine> mEngine;
 	QString mScript;
 
 	Threading &mThreading;

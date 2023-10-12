@@ -19,6 +19,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
 #include <QtMultimedia/QAudioOutput>
+#include <QtMultimedia/QAudioSink>
 
 namespace trikControl {
 
@@ -40,7 +41,7 @@ private:
 	QAudioFormat mFormat;
 
 	AudioSynthDevice *mDevice; // Has ownership
-	QAudioOutput *mOutput; // Has ownership
+	QAudioSink *mOutput; // Has ownership
 	QTimer mTimer;
 
 	void initializeAudio();

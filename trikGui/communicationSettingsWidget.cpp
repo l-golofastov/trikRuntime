@@ -14,7 +14,7 @@
 
 #include "communicationSettingsWidget.h"
 
-#include <QtCore/QRegExp>
+#include <QtCore/QRegularExpression>
 #include <QtGui/QKeyEvent>
 
 using namespace trikGui;
@@ -90,9 +90,9 @@ void CommunicationSettingsWidget::renewFocus()
 {
 	const QColor buttonColor = mMailbox.isConnected()
 			? QColor(Qt::green)
-			: QPalette().color(QPalette::Background);
+			: QPalette().color(QPalette::Window);
 	QPalette palette;
-	palette.setColor(QPalette::Background, buttonColor);
+	palette.setColor(QPalette::Window, buttonColor);
 	palette.setColor(QPalette::Base, buttonColor);
 	palette.setColor(QPalette::Button, buttonColor);
 	mConnectButton.setPalette(palette);
@@ -133,8 +133,8 @@ void CommunicationSettingsWidget::onConnectButtonClicked()
 	}
 
 	const QString ipSelectorValue = QString("%1").arg(mServerIpSelector.value(), 6, 10, QChar('0'));
-	const QString thirdPart = ipSelectorValue.left(3).replace(QRegExp("^0+"), "");
-	const QString fourthPart = ipSelectorValue.mid(3).replace(QRegExp("^0+"), "");
+	const QString thirdPart = ipSelectorValue.left(3).replace(QRegularExpression("^0+"), "");
+	const QString fourthPart = ipSelectorValue.mid(3).replace(QRegularExpression("^0+"), "");
 	result[2] = thirdPart.isEmpty() ? "0" : thirdPart;
 	result[3] = fourthPart.isEmpty() ? "0" : fourthPart;
 	mMailbox.connect(result.join("."));

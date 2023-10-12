@@ -14,7 +14,7 @@
 
 #include "audioSynthDevice.h"
 
-#include <QtMultimedia/QAudioDeviceInfo>
+#include <QtMultimedia/QAudioDevice>
 #include <qmath.h>
 #include <QsLog.h>
 

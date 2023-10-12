@@ -60,6 +60,8 @@ trikGui.depends = trikCommunicator trikScriptRunner trikWiFi trikTelemetry
     PythonQt.depends = qslog
 }
 
+QT += core5compat
+
 OTHER_FILES += \
 	$$PWD/resources/changelog.txt \
 	$$PWD/resources/lsan.supp \

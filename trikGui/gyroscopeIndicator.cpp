@@ -81,7 +81,7 @@ void GyroscopeIndicator::paintEvent(QPaintEvent *)
 
 	QPainter painter(&pixmap);
 
-	painter.setRenderHint(QPainter::HighQualityAntialiasing);
+	painter.setRenderHint(QPainter::Antialiasing);
 
 	painter.setPen(QPen(QBrush(Qt::black), mBounds.width() * 0.003));
 	painter.setBrush(QBrush(Qt::transparent));

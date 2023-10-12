@@ -14,7 +14,7 @@
 
 include(../common.pri)
 
-QT += script
+QT += qml
 
 HEADERS += \
 	$$PWD/trikJsRunnerTest.h \

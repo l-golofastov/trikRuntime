@@ -13,7 +13,7 @@
 # limitations under the License.
 
 TEMPLATE = app
-QT += network xml widgets
+QT += network xml widgets qml
 
 include(../global.pri)
 

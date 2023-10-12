@@ -18,8 +18,10 @@
 #include <QtCore/QTimer>
 #include <QtCore/QEventLoop>
 #include <QtMultimedia/QCamera>
-#include <QtMultimedia/QCameraImageCapture>
-#include <QtMultimedia/QCameraInfo>
+#include <QtMultimedia/QCameraDevice>
+#include <QMediaDevices>
+#include <QtMultimedia/QImageCapture>
+#include <QtMultimedia/QMediaCaptureSession>
 
 #include <QsLog.h>
 
@@ -27,9 +29,9 @@ using namespace trikControl;
 
 QtCameraImplementation::QtCameraImplementation(const QString & port)
 {
-	QLOG_INFO() << "Available cameras:" << QCameraInfo::availableCameras().count();
-	for (auto & cameraInfo : QCameraInfo::availableCameras()) {
-		if (cameraInfo.deviceName() == port) {
+	QLOG_INFO() << "Available cameras:" << QMediaDevices::videoInputs().count();
+	for (auto & cameraInfo : QMediaDevices::videoInputs()) {
+		if (cameraInfo.description() == port) {
 				decltype(mCamera) tmp(new QCamera(cameraInfo));
 				tmp.swap(mCamera);
 				break;
@@ -38,20 +40,33 @@ QtCameraImplementation::QtCameraImplementation(const QString & port)
 
 	if (!mCamera) {
 		QLOG_ERROR() << "Failed to initialize camera for " << port
-				<< " from available cameras" << QCameraInfo::availableCameras();
+				<< " from available cameras" << QMediaDevices::videoInputs();
 	}
 }
 
 QVector<uint8_t> QtCameraImplementation::getPhoto()
 {
+	QMediaCaptureSession captureSession;
+	auto camera = new QCamera;
+	captureSession.setCamera(camera);
+
+	auto imageCapture = new QImageCapture();
+	captureSession.setImageCapture(imageCapture);
+
+	camera->start();
+	//on shutter button pressed
+	QVector<uint8_t> imageByteVector;
+	imageByteVector.append(imageCapture->capture());
+	return imageByteVector;
+	/*
 	if(!mCamera)
 		return QVector<uint8_t>();
 
-	QScopedPointer<QCameraImageCapture> imageCapture (new QCameraImageCapture(mCamera.data()));
+	QScopedPointer<QCameraImageCapture> imageCapture (new QImageCameraCapture(mCamera));
 
 	imageCapture->setCaptureDestination(QCameraImageCapture::CaptureToBuffer);
 
-	const auto & formats = imageCapture->supportedBufferFormats();
+	const auto & formats = imageCapture->supportedFormats();
 	QLOG_INFO() << "Supported buffer formats: " << formats;
 
 	auto camera = mCamera.data();
@@ -91,4 +106,5 @@ QVector<uint8_t> QtCameraImplementation::getPhoto()
 	watchdog.stop();
 
 	return imageByteVector;
+	*/
 }

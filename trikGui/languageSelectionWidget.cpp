@@ -107,7 +107,7 @@ void LanguageSelectionWidget::loadLocales()
 		const QFileInfo localeInfo(directories.next() + "/locale.ini");
 		if (localeInfo.exists()) {
 			QSettings parsedLocaleInfo(localeInfo.absoluteFilePath(), QSettings::IniFormat);
-			parsedLocaleInfo.setIniCodec("UTF-8");
+			//parsedLocaleInfo.setIniCodec("UTF-8");
 			parsedLocaleInfo.sync();
 			const QString localeName = parsedLocaleInfo.value("name", "").toString();
 			if (localeName != "") {

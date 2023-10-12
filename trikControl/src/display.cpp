@@ -17,11 +17,7 @@
 #include <QtCore/QFileInfo>
 #include <qglobal.h>
 
-#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
-	#include <QtGui/QApplication>
-#else
-	#include <QtWidgets/QApplication>
-#endif
+#include <QtWidgets/QApplication>
 
 #include <QsLog.h>
 
@@ -31,7 +27,6 @@ trikControl::Display::Display(const QString &mediaPath)
 	: mMediaPath(mediaPath)
 	, mGuiWorker(new GuiWorker())
 {
-	mGuiWorker->setParent(this);
 	if (!qApp) {
 		QLOG_ERROR() << "No QApplication object, it seems that trikControl is used from console application";
 		return;
@@ -43,7 +38,7 @@ trikControl::Display::Display(const QString &mediaPath)
 
 trikControl::Display::~Display()
 {
-	mGuiWorker->deleteLater();
+	QMetaObject::invokeMethod(mGuiWorker, &GuiWorker::deleteLater);
 }
 
 trikControl::DisplayWidgetInterface &trikControl::Display::graphicsWidget()

@@ -18,6 +18,7 @@
 #include <QtCore/QPoint>
 #include <QtCore/QRect>
 #include <QtGui/QColor>
+#include <QHash>
 
 #include "include/trikControl/displayWidgetInterface.h"
 #include "shapes/shape.h"
@@ -29,7 +30,7 @@ class GraphicsWidget : public DisplayWidgetInterface
 {
 	Q_OBJECT
 public:
-	GraphicsWidget();
+	GraphicsWidget(QWidget *parent = nullptr);
 	~GraphicsWidget();
 
 	/// Show this GraphicsWidget.

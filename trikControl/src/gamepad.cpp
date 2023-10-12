@@ -91,7 +91,7 @@ void Gamepad::onNewData(const QString &data)
 		emit connected();
 	}
 
-	const QStringList cmd = data.split(" ", QString::SkipEmptyParts);
+	const QStringList cmd = data.split(" ", Qt::SplitBehaviorFlags::SkipEmptyParts);
 	if (cmd.isEmpty()) {
 		return;
 	}

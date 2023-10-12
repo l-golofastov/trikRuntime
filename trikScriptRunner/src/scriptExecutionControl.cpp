@@ -59,9 +59,9 @@ QObject* ScriptExecutionControl::timer(int milliseconds)
 void ScriptExecutionControl::wait(const int &milliseconds)
 {
 	QEventLoop loop;
-	QObject::connect(this, &ScriptExecutionControl::stopWaiting, &loop, &QEventLoop::quit);
+	QObject::connect(this, &ScriptExecutionControl::stopWaiting, &loop, &QEventLoop::quit, Qt::DirectConnection);
 	QTimer t;
-	connect(&t, &QTimer::timeout, &loop, &QEventLoop::quit);
+	connect(&t, &QTimer::timeout, &loop, &QEventLoop::quit, Qt::DirectConnection);
 	t.start(milliseconds);
 	loop.exec();
 }
